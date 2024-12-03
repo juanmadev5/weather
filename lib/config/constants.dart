@@ -1,9 +1,8 @@
 import 'dart:ui';
-
-const apiKey = "05b8aec48d1e5dc66398472e7c9aaa21";
+import 'package:myapp/config/api.dart';
 
 String baseUrl(double lat, double lon) {
-  return "https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&lang=es&appid=${apiKey}";
+  return "https://api.openweathermap.org/data/3.0/onecall?lat=$lat&lon=$lon&lang=es&appid=$apiKey";
 }
 
 // from UI
