@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:myapp/config/constants.dart';
-import 'package:myapp/service/location.dart';
+import 'package:myapp/main.dart';
+import 'package:myapp/model/weather_data_model.dart';
 import 'package:myapp/states.dart';
 import 'package:myapp/ui/components/data_row.dart';
 import '../components/wind_direction_row.dart';
@@ -25,65 +23,21 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  STATES state = STATES.loading;
+  STATES state = STATES.ok;
   String eMessage = "";
-  int currentTemp = 0;
-  String currentCity = "";
-  String weatherDescription = "";
-  int windSpeed = 0;
-  double windDeg = 0;
-  int st = 0;
-  String wIcon = "";
-  int humidity = 0;
-  double uvi = 0;
-  double visibility = 0;
-  int maxTemp = 0;
+  WeatherData? weatherData = gData!.data;
 
-  @override
-  void initState() {
-    super.initState();
-    fetchWeatherData();
-  }
-
-  Future<void> fetchWeatherData() async {
+  Future<void> _fetchWeatherData() async {
     setState(() => state = STATES.loading);
 
     try {
-      Position? position = await getCurrentLocation(context);
-      if (position == null) {
-        setState(() {
-          eMessage = "No se pudo obtener la posición.";
-        });
-        throw Exception("No se pudo obtener la ubicación");
-      }
+      await gData!.fetchWeatherData(context);
+      final data = gData!.data;
 
-      String url = baseUrl(position.latitude, position.longitude);
-
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        setState(() {
-          state = STATES.ok;
-          currentTemp = (data['main']['temp'] as num).toInt();
-          currentCity = data['name'];
-          weatherDescription = data['weather'][0]['description'];
-          windSpeed = (data['wind']['speed'] as num).toInt();
-          windDeg = (data['wind']['deg'] as num).toDouble();
-          st = (data['main']['feels_like'] as num).toInt();
-          wIcon = data['weather'][0]['icon'];
-          humidity = (data['main']['humidity'] as num).toInt();
-          visibility = (data['visibility'] as num).toDouble();
-          maxTemp = (data['main']['temp_max'] as num).toInt();
-        });
-      } else {
-        setState(() {
-          eMessage = "HTTP ${response.statusCode}: ${response.reasonPhrase}";
-        });
-        throw Exception(
-            "HTTP ${response.statusCode}: ${response.reasonPhrase}");
-      }
+      setState(() {
+        state = STATES.ok;
+        weatherData = data;
+      });
     } catch (e) {
       setState(() {
         state = STATES.error;
@@ -108,25 +62,28 @@ class _HomePageState extends State<HomePage> {
       flexibleSpace: Padding(
         padding: const EdgeInsets.only(
             top: 32.0, right: 16.0, left: 16.0, bottom: 16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 14.0, left: 4.0),
-                  child: Image.asset('lib/assets/ic-location.png',
-                      width: 22, height: 22),
-                ),
-                Text(
-                  currentCity,
-                  style: const TextStyle(
-                      fontSize: titleFontSize, color: Colors.white),
-                ),
-              ],
-            ),
-            windDirectionRow(windDeg, windSpeed),
-          ],
-        ),
+        child: weatherData != null
+            ? Column(
+                children: [
+                  Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 14.0, left: 4.0),
+                        child: Image.asset('lib/assets/ic-location.png',
+                            width: 22, height: 22),
+                      ),
+                      Text(
+                        weatherData!.currentCity,
+                        style: const TextStyle(
+                            fontSize: titleFontSize, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  windDirectionRow(
+                      weatherData!.windDeg, weatherData!.windSpeed),
+                ],
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
@@ -154,24 +111,28 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildForecast() {
+    if (weatherData == null) {
+      return const SizedBox.shrink();
+    }
+
     return RefreshIndicator(
-      onRefresh: fetchWeatherData,
+      onRefresh: _fetchWeatherData,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
             Image.asset(
-                'lib/assets/weather_icons/${wIcon.substring(0, wIcon.length - 1)}.png',
+                'lib/assets/weather_icons/${weatherData!.weatherIcon.substring(0, weatherData!.weatherIcon.length - 1)}.png',
                 height: 164.0),
             Text(
-              '$currentTemp°C',
+              '${weatherData!.currentTemp}°C',
               style:
                   const TextStyle(fontSize: tempFontSize, color: Colors.white),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Text(
-                'Máxima: $maxTemp°C',
+                'Máxima: ${weatherData!.maxTemp}°C',
                 style: const TextStyle(
                     fontSize: dataFontSize, color: Colors.white),
               ),
@@ -179,16 +140,16 @@ class _HomePageState extends State<HomePage> {
             Padding(
               padding: const EdgeInsets.only(top: 8.0, bottom: 24.0),
               child: Text(
-                weatherDescription,
+                weatherData!.weatherDescription,
                 style: const TextStyle(
                     fontSize: dataFontSize, color: Colors.white),
               ),
             ),
-            dataRow("ic-temp.png", "Sensación térmica de $st°C"),
-            dataRow("ic-humidity.png", "Humedad: $humidity%"),
-            dataRow("ic-uv-index.png", "Índice UV: ${uvi.toInt()}"),
+            dataRow("ic-temp.png",
+                "Sensación térmica de ${weatherData!.feelsLikeTemp}°C"),
+            dataRow("ic-humidity.png", "Humedad: ${weatherData!.humidity}%"),
             dataRow("ic-visibility.png",
-                "Visibilidad: ${(visibility / 1000).toInt()} km"),
+                "Visibilidad: ${(weatherData!.visibility / 1000).toInt()} km"),
           ],
         ),
       ),
