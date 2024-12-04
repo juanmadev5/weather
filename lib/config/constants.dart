@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:myapp/config/api.dart';
 
 String baseUrl(double lat, double lon) {
-  return "https://api.openweathermap.org/data/3.0/onecall?lat=$lat&lon=$lon&lang=es&appid=$apiKey";
+  const units = "metric";
+  return "https://api.openweathermap.org/data/2.5/weather"
+      "?lat=$lat&lon=$lon&units=$units&lang=es&appid=$apiKey";
 }
 
 // from UI
